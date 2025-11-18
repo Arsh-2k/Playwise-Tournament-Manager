@@ -1,26 +1,76 @@
 #!/usr/bin/env python3
-import json
-import random
-import sys
-import uuid
-import os
-import itertools
+import json       # For saving data
+import random     # For shuffling players
+import sys        # For exiting the program
+import uuid       # For unique IDs
+import os         # For clearing the screen
+import time       # For animations
 
 # ===============================================================
-#  PLAYWISE TOURNAMENT MANAGER (v10.0 Final Evaluation Build)
+#  PLAYWISE TOURNAMENT MANAGER (v15.0 Gold Standard)
 #  Team: Data Drifters
-#  Status: 100% Stable & Logic Verified
 # ===============================================================
+
+# --- CONFIGURATION ---
+# This helps us easily change team sizes without searching the whole code.
+TEAM_SIZES = {
+    "Valorant": 5,
+    "CS:GO": 5,
+    "BGMI": 4,
+    "PUBG": 4,
+    "FIFA": 1,
+    "Chess": 1,
+    "Table Tennis": 1,
+    "Carrom": 2,
+    "Badminton": 2
+}
 
 # ==========================================
-# MODULE 0: UI & AESTHETICS
+# MODULE 0: HELPER FUNCTIONS
 # ==========================================
 
 def clear_screen():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """Clears the terminal window."""
+    if os.name == 'nt': # Windows
+        os.system('cls')
+    else: # Mac/Linux
+        os.system('clear')
+
+def get_valid_int(prompt, min_val=None, max_val=None):
+    """
+    Safely asks for a number. Prevents crashes if user types text.
+    """
+    while True:
+        try:
+            user_input = input(prompt).strip()
+            if not user_input: return 0 # Default to 0 if empty
+            
+            value = int(user_input)
+            
+            if min_val is not None and value < min_val:
+                print(f"⚠️  Must be at least {min_val}.")
+                continue
+            if max_val is not None and value > max_val:
+                print(f"⚠️  Must be at most {max_val}.")
+                continue
+                
+            return value
+        except ValueError:
+            print("❌ Please enter a valid number.")
 
 def boot_sequence():
+    """Startup animation."""
     clear_screen()
+    print("Initializing Playwise...")
+    sys.stdout.write("[")
+    for i in range(20):
+        sys.stdout.write("=")
+        sys.stdout.flush()
+        time.sleep(0.02) 
+    sys.stdout.write("] READY\n")
+    time.sleep(0.2)
+    clear_screen()
+    
     print(r"""
     ____  __    ___  __  __ _       __  ____  _____    ______
    / __ \/ /   /   | \ \/ /| |     / / /  _/ / ___/   / ____/
@@ -31,7 +81,6 @@ def boot_sequence():
     print("="*70)
     print(" PROJECT: Playwise Tournament Manager")
     print(" TEAM:    DATA DRIFTERS")
-    print(" STATUS:  SYSTEM ONLINE")
     print("="*70)
     print(f"{'ROLE':<20} {'NAME':<25} {'CONTRIBUTION'}")
     print("-" * 70)
@@ -41,9 +90,7 @@ def boot_sequence():
     print(f"{'Analytics Lead':<20} {'Adityan':<25} {'Leaderboard & Stats'}")
     print(f"{'UI/UX Lead':<20} {'Deepak Bisht':<25} {'Interface & Presets'}")
     print("-" * 70)
-    print(" IDs: S25CSEU0993, S25CSEU0980, S25CSEU0985, S25CSEU0977, S25CSEU0986")
-    print("="*70)
-    print("\n[Press Enter to Launch]")
+    print("\n[Press Enter to Start]")
     input()
 
 # ==========================================
@@ -51,26 +98,27 @@ def boot_sequence():
 # ==========================================
 
 class Participant:
+    """Represents a Player or a Team."""
     def __init__(self, name, rating=1000, p_id=None):
         self.id = p_id if p_id else str(uuid.uuid4())
         self.name = name 
-        self.rating = int(rating)
-        self.score = 0.0
-        self.opponents_played = [] 
-        self.active = True
-        # Stats Storage
-        self.total_kills = 0
-        self.total_deaths = 0
-        self.kd_ratio = 0.0
-        self.roster = [] # List of member names
+        self.rating = int(rating)    # For Chess/Seeding
+        self.score = 0.0             # Tournament Points
+        self.opponents_played = []   # History for Swiss format
+        self.active = True           # Still in tournament?
+        
+        # Stats
+        self.stat_primary = 0        # Kills or Goals
+        self.stat_secondary = 0      # Deaths (Shooters only)
+        self.performance_ratio = 0.0 # Calculated K/D
+        self.roster = []             # Team members
 
-    def calculate_kd(self):
-        """Updates the K/D ratio based on total kills/deaths."""
-        # FIX: Prevent division by zero crash
-        if self.total_deaths == 0:
-            self.kd_ratio = float(self.total_kills)
+    def update_performance(self):
+        """Updates K/D ratio safely."""
+        if self.stat_secondary > 0:
+            self.performance_ratio = round(self.stat_primary / self.stat_secondary, 2)
         else:
-            self.kd_ratio = round(self.total_kills / self.total_deaths, 2)
+            self.performance_ratio = float(self.stat_primary)
 
     def to_dict(self):
         return self.__dict__
@@ -82,16 +130,17 @@ class Participant:
         p.opponents_played = data['opponents_played']
         p.active = data.get('active', True)
         p.roster = data.get('roster', [])
-        p.total_kills = data.get('total_kills', 0)
-        p.total_deaths = data.get('total_deaths', 0)
-        p.kd_ratio = data.get('kd_ratio', 0.0)
+        p.stat_primary = data.get('stat_primary', 0)
+        p.stat_secondary = data.get('stat_secondary', 0)
+        p.performance_ratio = data.get('performance_ratio', 0.0)
         return p
 
 class Match:
+    """Represents a single game."""
     def __init__(self, p1_id, p2_id, round_num):
         self.id = str(uuid.uuid4())
         self.p1_id = p1_id
-        self.p2_id = p2_id # None = BYE
+        self.p2_id = p2_id # None means BYE
         self.round = round_num
         self.winner_id = None
         self.is_draw = False
@@ -110,6 +159,7 @@ class Match:
         return m
 
 class Tournament:
+    """Main container for everything."""
     def __init__(self, name, sport_name, format_type, t_id=None):
         self.id = t_id if t_id else str(uuid.uuid4())
         self.name = name
@@ -119,13 +169,15 @@ class Tournament:
         self.matches = []
         self.round = 1
         self.is_finished = False
-    
+        self.history = [] 
+
     def to_dict(self):
         return {
             "id": self.id, "name": self.name, "sport_name": self.sport_name,
             "format_type": self.format_type, "round": self.round, "is_finished": self.is_finished,
             "participants": {k: v.to_dict() for k, v in self.participants.items()},
-            "matches": [m.to_dict() for m in self.matches]
+            "matches": [m.to_dict() for m in self.matches],
+            "history": self.history
         }
 
     @classmethod
@@ -135,6 +187,7 @@ class Tournament:
         t.matches = [Match.from_dict(m) for m in data['matches']]
         t.round = data['round']
         t.is_finished = data.get('is_finished', False)
+        t.history = data.get('history', [])
         return t
 
 # ==========================================
@@ -145,6 +198,7 @@ class AlgorithmEngine:
     
     @staticmethod
     def generate_fixtures(tournament):
+        """Creates matches based on game rules."""
         active_players = [p for p in tournament.participants.values() if p.active]
         active_ids = [p.id for p in active_players]
         
@@ -152,11 +206,11 @@ class AlgorithmEngine:
 
         new_matches = []
 
-        # LEAGUE
+        # LEAGUE (Round Robin)
         if tournament.format_type == "League":
-            if len(active_ids) % 2 != 0: active_ids.append(None)
+            if len(active_ids) % 2 != 0: active_ids.append(None) # Dummy for odd numbers
             num = len(active_ids)
-            rotation = (tournament.round - 1) % (num - 1)
+            rotation = (tournament.round - 1) % (num - 1) 
             moving = active_ids[1:]
             rotated = moving[rotation:] + moving[:rotation]
             order = [active_ids[0]] + rotated
@@ -166,24 +220,29 @@ class AlgorithmEngine:
                 if p1 and p2: new_matches.append(Match(p1, p2, tournament.round))
                 elif p1: new_matches.append(Match(p1, None, tournament.round))
         
-        # KNOCKOUT
+        # KNOCKOUT (Seeded)
         elif tournament.format_type == "Knockout":
             active_players.sort(key=lambda x: (x.score, x.rating), reverse=True)
             sorted_ids = [p.id for p in active_players]
             while len(sorted_ids) > 1:
+                # Pair Top vs Bottom
                 new_matches.append(Match(sorted_ids.pop(0), sorted_ids.pop(-1), tournament.round))
             if sorted_ids: new_matches.append(Match(sorted_ids[0], None, tournament.round))
 
-        # SWISS
+        # SWISS (Skill Based)
         elif tournament.format_type == "Swiss":
+            random.shuffle(active_players) # Randomize first to be fair
             active_players.sort(key=lambda x: (x.score, x.rating), reverse=True)
             pool = active_players.copy()
+            
             while pool:
                 p1 = pool.pop(0)
                 if not pool: 
                     new_matches.append(Match(p1.id, None, tournament.round))
                     break
+                
                 found = False
+                # Find first valid opponent they haven't played
                 for i in range(len(pool)):
                     p2 = pool[i]
                     if p2.id not in p1.opponents_played:
@@ -191,15 +250,18 @@ class AlgorithmEngine:
                         pool.pop(i)
                         found = True
                         break
+                # Fallback
                 if not found:
                     p2 = pool.pop(0) 
                     new_matches.append(Match(p1.id, p2.id, tournament.round))
 
         tournament.matches.extend(new_matches)
+        tournament.history.append(f"Round {tournament.round}: Generated {len(new_matches)} matches.")
         return len(new_matches)
 
     @staticmethod
-    def process_result(tournament, match_id, winner_id, is_draw, k1=0, d1=0, k2=0, d2=0):
+    def process_result(tournament, match_id, winner_id, is_draw, p1_stat1=0, p1_stat2=0, p2_stat1=0, p2_stat2=0, mvp_note=""):
+        """Updates stats, scores, and logs."""
         match = next((m for m in tournament.matches if m.id == match_id), None)
         if not match: return False
         
@@ -211,40 +273,39 @@ class AlgorithmEngine:
         match.winner_id = winner_id
         match.is_draw = is_draw
         
+        # Update Stats
         p1 = tournament.participants[match.p1_id]
-        # Update Stats P1
-        p1.total_kills += k1
-        p1.total_deaths += d1
-        p1.calculate_kd()
+        p1.stat_primary += p1_stat1
+        p1.stat_secondary += p1_stat2
+        p1.update_performance()
         
         p2 = None
         if match.p2_id:
             p2 = tournament.participants[match.p2_id]
-            # Update Stats P2
-            p2.total_kills += k2
-            p2.total_deaths += d2
-            p2.calculate_kd()
+            p2.stat_primary += p2_stat1
+            p2.stat_secondary += p2_stat2
+            p2.update_performance()
 
-        if p2:
-            p1.opponents_played.append(p2.id)
-            p2.opponents_played.append(p1.id)
-
-        if not p2: # Bye
-            p1.score += 1.0
-            match.winner_id = p1.id
+        # Create Log Entry
+        log_entry = f"R{tournament.round}: {p1.name} vs {p2.name if p2 else 'BYE'} -> "
+        
+        if not p2:
+            p1.score += 1.0; match.winner_id = p1.id; log_entry += "Winner: BYE"
         elif is_draw:
-            p1.score += 0.5
-            p2.score += 0.5
+            p1.score += 0.5; p2.score += 0.5
+            p1.opponents_played.append(p2.id); p2.opponents_played.append(p1.id)
+            log_entry += "Draw"
         else:
+            p1.opponents_played.append(p2.id); p2.opponents_played.append(p1.id)
             if p1.id == winner_id:
-                p1.score += 1.0
-                loser = p2
+                p1.score += 1.0; loser = p2; log_entry += f"Winner: {p1.name}"
             else:
-                p2.score += 1.0
-                loser = p1
+                p2.score += 1.0; loser = p1; log_entry += f"Winner: {p2.name}"
             
-            if tournament.format_type == "Knockout":
-                loser.active = False
+            if tournament.format_type == "Knockout": loser.active = False
+        
+        if mvp_note: log_entry += f" ({mvp_note})"
+        tournament.history.append(log_entry)
         return True
 
 # ==========================================
@@ -280,102 +341,140 @@ class DataManager:
 class ConsoleUI:
     def __init__(self):
         self.tournaments = DataManager.load()
-        self.presets = {
-            "1": "Valorant (5v5)",
-            "2": "BGMI (Squad)",
-            "3": "CS:GO 2 (5v5)",
-            "4": "Chess",
-            "5": "FIFA",
-            "6": "Custom"
-        }
+        self.presets = [
+            "Valorant", "BGMI", "CS:GO", "FIFA", "Chess", 
+            "Table Tennis", "Carrom", "Custom"
+        ]
 
     def run(self):
         boot_sequence()
         while True:
             print(f"\n=== 🏆 MAIN MENU 🏆 ===")
+            print(f"Total Tournaments: {len(self.tournaments)}")
             print("1. Create Tournament")
             print("2. Manage Tournament")
-            print("3. Exit")
+            print("3. Delete Tournament")
+            print("4. Help")
+            print("5. Exit")
+            
             choice = input("Choice: ").strip()
-            if choice == '1': self.create_t()
-            elif choice == '2': self.manage_t()
-            elif choice == '3': 
-                print("Exiting...")
-                sys.exit()
+            if choice == '1': self.create_tournament()
+            elif choice == '2': self.manage_tournament()
+            elif choice == '3': self.delete_tournament()
+            elif choice == '4': self.show_help()
+            elif choice == '5': 
+                if input("Are you sure? (y/n): ").lower() == 'y': sys.exit()
+
+    def show_help(self):
+        print("\n--- 📖 HELP ---")
+        print("1. Create a Tournament first.")
+        print("2. League = Everyone plays everyone.")
+        print("3. Knockout = Elimination.")
+        print("4. Swiss = Skill-based pairing.")
+        print("5. Shooters use Kills/Deaths. Sports use Goals.")
+        input("\n[Press Enter]")
+
+    def _get_game_category(self, game_name):
+        """Returns: SHOOTER, SPORT, or STRATEGY"""
+        shooters = ["Valorant", "BGMI", "PUBG", "CS:GO", "COD", "Fortnite"]
+        if any(s in game_name for s in shooters): return "SHOOTER"
+        if "Chess" in game_name: return "STRATEGY"
+        return "SPORT" 
 
     def _get_roster_input(self, game_name, team_name):
-        """Collects member names for a team."""
-        roster = []
-        # Logic: Team games get 5/4 players, others get 1 (single player)
-        size = 5 if "Valorant" in game_name or "CS" in game_name else 4 if "BGMI" in game_name else 1
+        """Asks for team members based on config."""
+        size = 1
+        for key, val in TEAM_SIZES.items():
+            if key in game_name:
+                size = val
+                break
         
-        # If it's effectively a single player game, skip roster
-        if size == 1: return []
+        if "Custom" in game_name:
+            size = get_valid_int("Players per Team (1 for Solo): ", 1, 100)
+
+        if size <= 1: return []
         
         print(f"\n--- 📝 Roster for {team_name} ---")
+        roster = []
         for i in range(size):
             m = input(f"Member {i+1} Name (Role): ").strip()
             roster.append(m)
         return roster
 
-    def _collect_stats(self, participant):
-        """Loops through roster to collect individual Kills/Deaths."""
-        # FIX: Handle cases with no roster (Custom game treated as single player)
-        if not participant.roster: 
-            # If no roster, ask for the entity stats directly
-            try:
-                print(f" > {participant.name}")
-                k = int(input(f"   Total Kills/Points: ") or 0)
-                if k < 0: k = 0
-                d = int(input(f"   Total Deaths: ") or 0)
-                if d < 0: d = 0
-                return k, d
-            except ValueError:
-                return 0, 0
-            
-        print(f"\n📊 Enter Stats for Team: {participant.name}")
-        team_k = 0
-        team_d = 0
+    def _collect_stats(self, participant, category):
+        """Gets Kills/Deaths or Goals and finds MVP."""
+        if category == "STRATEGY": return 0, 0, "", 0
         
-        for member in participant.roster:
-            try:
-                print(f" > {member}")
-                k = int(input(f"   Kills/Finishes: ") or 0)
-                if k < 0: k = 0 # FIX: Prevent negative stats
-                d = int(input(f"   Deaths: ") or 0)
-                if d < 0: d = 0
-                
-                # Show individual K/D immediately
-                kd = k if d == 0 else round(k/d, 2)
-                print(f"   [Player K/D: {kd}]")
-                
-                team_k += k
-                team_d += d
-            except ValueError:
-                print("   Invalid input, counting as 0.")
-        
-        print(f"--- Team Total: {team_k} Kills / {team_d} Deaths ---")
-        return team_k, team_d
+        team_p, team_s = 0, 0
+        mvp_name = participant.name
+        high_score = -1
 
-    def create_t(self):
+        p_label = "Kills" if category == "SHOOTER" else "Goals/Pts"
+        s_label = "Deaths"
+        
+        def process_entry(name):
+            print(f" > {name}")
+            p = get_valid_int(f"   {p_label}: ", 0)
+            s = 0
+            if category == "SHOOTER":
+                s = get_valid_int(f"   {s_label}: ", 0)
+                val = p if s == 0 else round(p/s, 2)
+                print(f"   [K/D: {val}]")
+            else:
+                val = p 
+            return p, s, val
+
+        if participant.roster:
+            print(f"\n📊 Enter Stats for Team: {participant.name}")
+            for member in participant.roster:
+                p, s, val = process_entry(member)
+                team_p += p; team_s += s
+                if val > high_score:
+                    high_score = val; mvp_name = member.split('(')[0]
+        else:
+            p, s, val = process_entry(participant.name)
+            team_p = p; team_s = s; high_score = val
+
+        return team_p, team_s, mvp_name, high_score
+
+    def delete_tournament(self):
+        t = self._select_tournament()
+        if t:
+            if input(f"❌ Delete '{t.name}'? (yes/no): ") == 'yes':
+                del self.tournaments[t.id]
+                DataManager.save(self.tournaments)
+                print("Deleted.")
+
+    def _select_tournament(self):
+        if not self.tournaments: print("No data."); return None
+        t_list = list(self.tournaments.values())
+        for i, t in enumerate(t_list): print(f"{i+1}. {t.name} ({t.sport_name})")
+        try:
+            idx = get_valid_int("Enter ID: ", 1, len(t_list)) - 1
+            return t_list[idx]
+        except: return None
+
+    def create_tournament(self):
         print("\n--- ⚙️  SETUP ---")
         name = input("Tournament Name: ").strip()
-        if not name: return
+        if not name: print("❌ Name required."); return
 
         print("\nSelect Game:")
-        for k, v in self.presets.items(): print(f"{k}. {v}")
-        g = input("> ")
-        sport = self.presets.get(g, "Unknown")
-        if g == '6': sport = input("Enter Game Name: ")
+        for i, game in enumerate(self.presets, 1): print(f"{i}. {game}")
+        
+        idx = get_valid_int("Choice: ", 1, len(self.presets)) - 1
+        sport = self.presets[idx]
+        if sport == "Custom":
+            sport = input("Enter Game Name: ").strip() + " (Custom)"
 
         print("\nSelect Format: 1.League 2.Knockout 3.Swiss")
-        f = input("> ")
-        fmt = "League" if f=='1' else "Knockout" if f=='2' else "Swiss"
+        f = get_valid_int("Choice: ", 1, 3)
+        fmt = "League" if f==1 else "Knockout" if f==2 else "Swiss"
 
         t = Tournament(name, sport, fmt)
         self.tournaments[t.id] = t
         
-        print(f"\n--- REGISTER {'TEAMS' if 'Chess' not in sport else 'PLAYERS'} ---")
+        print(f"\n--- REGISTER PARTICIPANTS ---")
         c = 1
         while True:
             n = input(f"Participant {c} Name: ").strip()
@@ -386,11 +485,10 @@ class ConsoleUI:
             
             r = 1000
             if "Chess" in sport:
-                try: r = int(input("Rating (1000): ") or 1000)
-                except: pass
+                r = get_valid_int("Rating (1000): ", 0) or 1000
             
             p = Participant(n, r)
-            if "Chess" not in sport:
+            if self._get_game_category(sport) == "SHOOTER" or "Custom" in sport:
                 p.roster = self._get_roster_input(sport, n)
                 
             t.participants[p.id] = p
@@ -402,7 +500,9 @@ class ConsoleUI:
     def display_leaderboard(self, t):
         print(f"\n📊 LEADERBOARD: {t.name}")
         sorted_p = sorted(t.participants.values(), key=lambda x: x.score, reverse=True)
-        label = "Rating" if "Chess" in t.sport_name else "Tm K/D"
+        
+        cat = self._get_game_category(t.sport_name)
+        label = "Rating" if cat == "STRATEGY" else "Tm K/D" if cat == "SHOOTER" else "Goals"
         
         print("+" + "-"*60 + "+")
         print(f"| {'#':<3} | {'Name':<25} | {'Pts':<5} | {label:<6} | {'Sts':<3} |")
@@ -410,21 +510,23 @@ class ConsoleUI:
         for i, p in enumerate(sorted_p, 1):
             nm = f"👑 {p.name}" if i==1 else p.name
             st = "IN" if p.active else "OUT"
-            val = p.rating if "Chess" in t.sport_name else p.kd_ratio
+            
+            if cat == "STRATEGY": val = p.rating
+            elif cat == "SHOOTER": val = p.performance_ratio
+            else: val = int(p.performance_ratio) 
+            
             print(f"| {i:<3} | {nm:<25} | {p.score:<5} | {val:<6} | {st:<3} |")
         print("+" + "-"*60 + "+")
 
-    def manage_t(self):
-        if not self.tournaments: print("No data."); return
-        t_list = list(self.tournaments.values())
-        for i, t in enumerate(t_list): print(f"{i+1}. {t.name} ({t.sport_name})")
-        try:
-            t = t_list[int(input("ID: ")) - 1]
-        except: return
+    def manage_tournament(self):
+        t = self._select_tournament()
+        if not t: return
+
+        cat = self._get_game_category(t.sport_name)
 
         while True:
             print(f"\n--- {t.name} [Round {t.round}] ---")
-            print("1. Generate Matches  2. Enter Results  3. Leaderboard  4. Next Round  5. Back")
+            print("1.Generate Matches  2.Enter Results  3.Leaderboard  4.Next Round  5.History  6.Back")
             act = input("> ")
             
             if act == '1':
@@ -444,37 +546,33 @@ class ConsoleUI:
                     for i, m in enumerate(matches):
                         p1 = t.participants[m.p1_id]
                         p2 = t.participants[m.p2_id] if m.p2_id else None
-                        p2_name = p2.name if p2 else "BYE"
-                        print(f"{i+1}. {p1.name} vs {p2_name}")
+                        print(f"{i+1}. {p1.name} vs {p2.name if p2 else 'BYE'}")
                     
-                    try:
-                        idx = int(input("Match #: ")) - 1
-                        if idx < 0: continue
-                        tgt = matches[idx]
+                    idx = get_valid_int("Match # (0 cancel): ", 0, len(matches)) - 1
+                    if idx < 0: continue
+                    tgt = matches[idx]
+                    
+                    if not tgt.p2_id:
+                        AlgorithmEngine.process_result(t, tgt.id, None, False)
+                        print("✅ Bye.")
+                    else:
+                        p1 = t.participants[tgt.p1_id]
+                        p2 = t.participants[tgt.p2_id]
                         
-                        if not tgt.p2_id:
-                            AlgorithmEngine.process_result(t, tgt.id, None, False)
-                            print("✅ Bye.")
-                        else:
-                            p1 = t.participants[tgt.p1_id]
-                            p2 = t.participants[tgt.p2_id]
-                            
-                            # Collect Stats
-                            k1, d1 = 0, 0
-                            k2, d2 = 0, 0
-                            
-                            if "Chess" not in t.sport_name:
-                                k1, d1 = self._collect_stats(p1)
-                                k2, d2 = self._collect_stats(p2)
+                        p1_p, p1_s, mvp1, s1 = self._collect_stats(p1, cat)
+                        p2_p, p2_s, mvp2, s2 = self._collect_stats(p2, cat)
 
-                            print(f"\nWinner? 1.{p1.name} 2.{p2.name} 3.Draw")
-                            r = input("> ")
-                            wid = p1.id if r=='1' else p2.id if r=='2' else None
-                            
-                            AlgorithmEngine.process_result(t, tgt.id, wid, r=='3', k1, d1, k2, d2)
-                            print("✅ Saved.")
-                        DataManager.save(self.tournaments)
-                    except Exception as e: print(f"Error: {e}")
+                        print(f"\nWinner? 1.{p1.name} 2.{p2.name} 3.Draw")
+                        r = input("> ")
+                        wid = p1.id if r=='1' else p2.id if r=='2' else None
+                        
+                        final_mvp = ""
+                        if cat != "STRATEGY":
+                            final_mvp = f"MVP: {mvp1}" if s1 > s2 else f"MVP: {mvp2}"
+
+                        AlgorithmEngine.process_result(t, tgt.id, wid, r=='3', p1_p, p1_s, p2_p, p2_s, final_mvp)
+                        print("✅ Saved.")
+                    DataManager.save(self.tournaments)
 
             elif act == '3': self.display_leaderboard(t)
             elif act == '4':
@@ -484,10 +582,18 @@ class ConsoleUI:
                     actv = len([p for p in t.participants.values() if p.active])
                     if t.format_type == "Knockout" and actv <= 1:
                         print("🏆 WINNER FOUND!"); t.is_finished = True
+                        t.history.append("🏆 Tournament Finished.")
                     else:
                         t.round += 1; print("⏩ Next Round.")
                     DataManager.save(self.tournaments)
-            elif act == '5': break
+            elif act == '5':
+                print("\n📜 MATCH HISTORY")
+                for log in t.history: print(f" - {log}")
+                if input("Export to file? (y/n): ") == 'y':
+                    with open("matches.txt", "w") as f:
+                        for log in t.history: f.write(log + "\n")
+                    print("✅ Saved to matches.txt")
+            elif act == '6': break
 
 if __name__ == "__main__":
     app = ConsoleUI()
