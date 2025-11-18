@@ -1,0 +1,83 @@
+[
+  {
+    "id": "48372f76-f166-499c-bfbe-84b40760afb8",
+    "name": "zoro",
+    "sport_name": "Table Tennis",
+    "format_type": "Knockout",
+    "round": 2,
+    "is_finished": false,
+    "participants": {
+      "163a0f5e-28a4-42d7-aecd-53be5397fed1": {
+        "id": "163a0f5e-28a4-42d7-aecd-53be5397fed1",
+        "name": "krish",
+        "rating": 400,
+        "score": 1.0,
+        "opponents_played": [
+          "0eb3102c-54e9-4894-9c6e-703c05229966",
+          "45a22bdb-47a8-4b40-9c3b-62a1b82be1ae"
+        ],
+        "active": false
+      },
+      "0eb3102c-54e9-4894-9c6e-703c05229966": {
+        "id": "0eb3102c-54e9-4894-9c6e-703c05229966",
+        "name": "arshpreet",
+        "rating": 1200,
+        "score": 0.0,
+        "opponents_played": [
+          "163a0f5e-28a4-42d7-aecd-53be5397fed1"
+        ],
+        "active": false
+      },
+      "b229be40-36b6-415b-8ff9-e8c588620661": {
+        "id": "b229be40-36b6-415b-8ff9-e8c588620661",
+        "name": "shimon",
+        "rating": 600,
+        "score": 0.0,
+        "opponents_played": [
+          "45a22bdb-47a8-4b40-9c3b-62a1b82be1ae"
+        ],
+        "active": false
+      },
+      "45a22bdb-47a8-4b40-9c3b-62a1b82be1ae": {
+        "id": "45a22bdb-47a8-4b40-9c3b-62a1b82be1ae",
+        "name": "nakul",
+        "rating": 1000,
+        "score": 2.0,
+        "opponents_played": [
+          "b229be40-36b6-415b-8ff9-e8c588620661",
+          "163a0f5e-28a4-42d7-aecd-53be5397fed1"
+        ],
+        "active": true
+      }
+    },
+    "matches": [
+      {
+        "id": "70023605-ef4e-42ed-8ac8-da4f8411e712",
+        "p1_id": "0eb3102c-54e9-4894-9c6e-703c05229966",
+        "p2_id": "163a0f5e-28a4-42d7-aecd-53be5397fed1",
+        "round": 1,
+        "winner_id": "163a0f5e-28a4-42d7-aecd-53be5397fed1",
+        "is_draw": false,
+        "is_played": true
+      },
+      {
+        "id": "a9a03e05-6ed5-4fef-897d-91bba5c262b7",
+        "p1_id": "45a22bdb-47a8-4b40-9c3b-62a1b82be1ae",
+        "p2_id": "b229be40-36b6-415b-8ff9-e8c588620661",
+        "round": 1,
+        "winner_id": "45a22bdb-47a8-4b40-9c3b-62a1b82be1ae",
+        "is_draw": false,
+        "is_played": true
+      },
+      {
+        "id": "0a1c05e2-0561-4447-83fb-3eabd779ea74",
+        "p1_id": "45a22bdb-47a8-4b40-9c3b-62a1b82be1ae",
+        "p2_id": "163a0f5e-28a4-42d7-aecd-53be5397fed1",
+        "round": 2,
+        "winner_id": "45a22bdb-47a8-4b40-9c3b-62a1b82be1ae",
+        "is_draw": false,
+        "is_played": true
+      }
+    ]
+  }
+]
