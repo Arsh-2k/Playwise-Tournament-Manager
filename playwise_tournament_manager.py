@@ -8,7 +8,7 @@ import time       # For animations
 import itertools  # For creating match combinations
 
 # ===============================================================
-#  PLAYWISE TOURNAMENT MANAGER (v17.3 ASCII CLEANED)
+#  PLAYWISE TOURNAMENT MANAGER 
 # ===============================================================
 
 # --- CONFIGURATION ---
