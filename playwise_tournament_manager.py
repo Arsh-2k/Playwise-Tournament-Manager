@@ -9,7 +9,6 @@ import itertools  # For creating match combinations
 
 # ===============================================================
 #  PLAYWISE TOURNAMENT MANAGER (v17.3 ASCII CLEANED)
-#  Fixes: Guaranteed removal of all non-standard space characters.
 # ===============================================================
 
 # --- CONFIGURATION ---
