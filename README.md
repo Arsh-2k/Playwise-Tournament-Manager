@@ -1,4 +1,4 @@
-# 🏆 Playwise - Intelligent Tournament Management System
+# 🏆 Playwise - Tournament Management System
 
 > **Academic Project** | Computational Thinking & Programming (2025CSET100)  
 > **Team:** DATA DRIFTERS | **Institution:** Bennett University | **Batch:** 33
