@@ -3,14 +3,14 @@
 ║ PLAYWISE - TOURNAMENT MANAGEMENT SYSTEM                                   ║
 ║                                                                           ║
 ║ Main Application Controller                                               ║
-║ Created by: Team DATA DRIFTERS (All Members)                             ║
+║ Created by: Team DATA DRIFTERS (All Members)                              ║
 ║                                                                           ║
 ║ Team Members:                                                             ║
-║ - Shimon Pandey (S25CSEU0993) - Team Lead                                ║
-║ - Arshpreet Singh (S25CSEU0980) - Data Models                            ║
-║ - Krish Agarwal (S25CSEU0985) - Tournament Logic                         ║
-║ - Adityan (S25CSEU0977) - Analytics                                      ║
-║ - Deepak Bisht (S25CSEU0986) - UI Components                             ║
+║ - Shimon Pandey (S25CSEU0993) - Team Lead                                 ║
+║ - Arshpreet Singh (S25CSEU0980) - Data Models                             ║
+║ - Krish Agarwal (S25CSEU0985) - Tournament Logic                          ║
+║ - Adityan (S25CSEU0977) - Analytics                                       ║
+║ - Deepak Bisht (S25CSEU0986) - UI Components                              ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 """
 
